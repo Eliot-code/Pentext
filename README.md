@@ -378,3 +378,7 @@ MIT License — consulta el archivo [LICENSE](LICENSE) para más detalles.
 ---
 
 *AutoPentestX v2.0 [DARKSEID] — Advanced Red Team Framework*
+
+---
+
+**Autor:** [Eliot-code](https://github.com/Eliot-code)

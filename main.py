@@ -146,7 +146,7 @@ class AutoPentestX:
         subtitle_lines = [
             "PENETRATION TESTING FRAMEWORK",
             "[CODENAME: D A R K S E I D]",
-            "Author: Gowtham Darkseid",
+            "Author: Eliot-code",
         ]
 
         # Determine width based on longest content line
