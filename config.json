@@ -1,8 +1,9 @@
 {
   "app_name": "AutoPentestX",
-  "version": "1.0.0",
-  "description": "Automated Penetration Testing & Vulnerability Assessment Toolkit",
-  
+  "version": "2.0.0",
+  "codename": "DARKSEID",
+  "description": "Advanced Red Team & Offensive Security Framework",
+
   "scan_settings": {
     "default_safe_mode": true,
     "timeout": 300,
@@ -12,18 +13,20 @@
       "udp_scan": true,
       "service_detection": true,
       "os_detection": true,
-      "version_detection": true
+      "version_detection": true,
+      "script_scan": true,
+      "aggressive_timing": "T4"
     }
   },
-  
+
   "vulnerability_scanning": {
     "nikto_enabled": true,
     "sqlmap_enabled": true,
     "nikto_timeout": 300,
     "sqlmap_timeout": 180,
-    "max_web_crawl_depth": 2
+    "max_web_crawl_depth": 3
   },
-  
+
   "cve_lookup": {
     "enabled": true,
     "api_url": "https://cve.circl.lu/api",
@@ -31,14 +34,14 @@
     "max_results_per_service": 10,
     "cache_results": true
   },
-  
+
   "exploitation": {
     "safe_mode_default": true,
     "metasploit_enabled": true,
     "max_exploit_attempts": 5,
     "generate_rc_scripts": true
   },
-  
+
   "risk_scoring": {
     "cvss_thresholds": {
       "critical": 9.0,
@@ -53,22 +56,106 @@
       "authenticated": 0.7
     }
   },
-  
+
+  "advanced_recon": {
+    "enabled": true,
+    "subdomain_enum": true,
+    "subdomain_threads": 50,
+    "dns_zone_transfer": true,
+    "ssl_analysis": true,
+    "waf_detection": true,
+    "technology_fingerprinting": true,
+    "email_security_check": true,
+    "asn_lookup": true,
+    "ct_log_query": true,
+    "google_dorks": true
+  },
+
+  "web_attacks": {
+    "enabled": true,
+    "fuzz_directories": true,
+    "fuzz_threads": 30,
+    "test_xss": true,
+    "test_sqli": true,
+    "test_lfi": true,
+    "test_ssrf": true,
+    "test_cors": true,
+    "test_jwt": true,
+    "api_discovery": true,
+    "header_injection": true,
+    "security_header_audit": true,
+    "request_timeout": 8
+  },
+
+  "payload_generator": {
+    "enabled": true,
+    "default_lhost": "10.10.10.10",
+    "default_lport": 4444,
+    "output_dir": "payloads",
+    "generate_reverse_shells": true,
+    "generate_web_shells": true,
+    "generate_msfvenom": true,
+    "generate_vba_macro": true,
+    "generate_listeners": true,
+    "generate_cheatsheet": true,
+    "encode_payloads": true
+  },
+
+  "active_directory": {
+    "enabled": true,
+    "enumerate_smb": true,
+    "enumerate_ldap": true,
+    "kerberoasting": true,
+    "asrep_roasting": true,
+    "password_spray": true,
+    "dcsync_analysis": true,
+    "bloodhound_commands": true,
+    "lateral_movement": true,
+    "spray_safe_password_limit": 3,
+    "default_spray_passwords": [
+      "Password1", "Password123", "Welcome1", "Summer2024", "P@ssw0rd"
+    ]
+  },
+
+  "post_exploitation": {
+    "enabled": true,
+    "system_enumeration": true,
+    "privesc_detection": true,
+    "credential_harvesting": true,
+    "persistence_generation": true,
+    "network_recon": true,
+    "exfiltration_techniques": true
+  },
+
+  "evasion": {
+    "enabled": true,
+    "output_dir": "payloads/evasion",
+    "encoding_methods": ["base64", "hex", "xor", "chain"],
+    "powershell_obfuscation": true,
+    "bash_obfuscation": true,
+    "amsi_bypass": true,
+    "etw_bypass": true,
+    "cs_loader_generation": true,
+    "ids_evasion_guide": true,
+    "traffic_camouflage": true
+  },
+
   "reporting": {
     "format": "pdf",
     "generate_json": true,
     "include_screenshots": false,
     "confidential_watermark": true,
-    "default_tester_name": "AutoPentestX Team"
+    "default_tester_name": "AutoPentestX Team",
+    "include_v2_modules": true
   },
-  
+
   "database": {
     "type": "sqlite",
     "path": "database/autopentestx.db",
     "backup_enabled": true,
     "retention_days": 90
   },
-  
+
   "logging": {
     "enabled": true,
     "level": "INFO",
@@ -76,18 +163,20 @@
     "max_log_size_mb": 10,
     "backup_count": 5
   },
-  
+
   "output": {
     "reports_dir": "reports",
     "logs_dir": "logs",
     "database_dir": "database",
-    "exploits_dir": "exploits"
+    "exploits_dir": "exploits",
+    "payloads_dir": "payloads",
+    "evasion_dir": "payloads/evasion"
   },
-  
+
   "network": {
-    "user_agent": "Mozilla/5.0 (AutoPentestX Security Scanner)",
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
     "request_timeout": 30,
     "max_retries": 3,
-    "rate_limit_delay": 1
+    "rate_limit_delay": 0.5
   }
 }
