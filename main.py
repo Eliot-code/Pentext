@@ -37,6 +37,13 @@ from modules.ad_attacks import ADAttackSuite
 from modules.post_exploit import PostExploitFramework
 from modules.evasion import EvasionEngine
 
+# Enterprise / v3.0 modules
+from modules.native_scanner import NativeAssessor
+from modules.polymorphic_engine import PolymorphicEngine
+from modules.threat_intel import ThreatIntelligence
+from modules.heuristic_engine import HeuristicEngine
+from modules.edr_fingerprint import EDRFingerprinter, select_evasion_strategy
+
 
 class AutoPentestX:
     """Main AutoPentestX v2.0 — Advanced Red Team Framework"""
@@ -48,7 +55,10 @@ class AutoPentestX:
                  domain=None, dc_ip=None,
                  ad_user=None, ad_pass=None,
                  skip_recon=False, skip_ad=False,
-                 skip_payload=False, skip_post=False, skip_evasion=False):
+                 skip_payload=False, skip_post=False, skip_evasion=False,
+                 # v3.0 enterprise options
+                 native_scan=False, threat_intel=False, poly_payloads=False,
+                 edr_fp=False, webshell_password=None):
         """Initialize AutoPentestX v2.0"""
         self.target = target
         self.tester_name = tester_name
@@ -68,7 +78,14 @@ class AutoPentestX:
         self.skip_payload = skip_payload
         self.skip_post = skip_post
         self.skip_evasion = skip_evasion
-        
+
+        # v3.0
+        self.native_scan = native_scan
+        self.threat_intel = threat_intel
+        self.poly_payloads = poly_payloads
+        self.edr_fp = edr_fp
+        self.webshell_password = webshell_password
+
         self.scan_id = None
         self.start_time = None
         self.end_time = None
@@ -87,6 +104,13 @@ class AutoPentestX:
         self.post_exploit_results = None
         self.payload_results = None
         self.evasion_results = None
+
+        # v3.0 results
+        self.native_scan_results = None
+        self.threat_intel_results = None
+        self.poly_results = None
+        self.edr_fp_results = None
+        self.heuristic_results = None
 
         # Initialize database
         self.db = Database()
@@ -183,10 +207,11 @@ class AutoPentestX:
         status_width = inner_width
         print(f"{CYAN}┌" + "─" * status_width + f"┐{RESET}")
         print(f"{CYAN}│{RESET} {BOLD}[SYSTEM STATUS]{RESET}" + " " * (status_width - 14) + f"{CYAN}│{RESET}")
-        print(f"{CYAN}│{RESET} ├─ Exploit Engine: {GREEN}ONLINE{RESET}" + " " * (status_width - 34) + f"{CYAN}│{RESET}")
-        print(f"{CYAN}│{RESET} ├─ Scanner Array : {GREEN}ONLINE{RESET}" + " " * (status_width - 34) + f"{CYAN}│{RESET}")
-        print(f"{CYAN}│{RESET} ├─ CVE Database  : {GREEN}SYNCED{RESET}" + " " * (status_width - 34) + f"{CYAN}│{RESET}")
-        print(f"{CYAN}│{RESET} └─ Neural Core   : {GREEN}OPERATIONAL{RESET}" + " " * (status_width - 34) + f"{CYAN}│{RESET}")
+        print(f"{CYAN}│{RESET} ├─ Exploit Engine  : {GREEN}ONLINE{RESET}" + " " * (status_width - 36) + f"{CYAN}│{RESET}")
+        print(f"{CYAN}│{RESET} ├─ Scanner Array   : {GREEN}ONLINE{RESET}" + " " * (status_width - 36) + f"{CYAN}│{RESET}")
+        print(f"{CYAN}│{RESET} ├─ Threat Intel    : {GREEN}LIVE{RESET}" + " " * (status_width - 36) + f"{CYAN}│{RESET}")
+        print(f"{CYAN}│{RESET} ├─ Polymorphic Eng : {GREEN}ACTIVE{RESET}" + " " * (status_width - 36) + f"{CYAN}│{RESET}")
+        print(f"{CYAN}│{RESET} └─ Heuristic Engine: {GREEN}FUSED [Bayesian+Anomaly]{RESET}" + " " * (status_width - 51) + f"{CYAN}│{RESET}")
         print(f"{CYAN}└" + "─" * status_width + f"┘{RESET}")
     
     def run_full_assessment(self):
@@ -235,6 +260,19 @@ class AutoPentestX:
             for port in self.scan_results.get('ports', []):
                 self.db.insert_port(self.scan_id, port)
             
+            # ──────────────────────────────────────────────────────
+            # PHASE 2.4 (v3.0): Native Scanner (no-root, no nmap)
+            # ──────────────────────────────────────────────────────
+            if self.native_scan:
+                print(f"\n{CYAN}╔══════════════════════════════════════════════════════════════════╗{RESET}")
+                print(f"{CYAN}║{RESET} {BOLD}{YELLOW}[PHASE 2.4]{RESET} {GREEN}▶{RESET} Native Port/Service Scanner (no-root)...  {CYAN}║{RESET}")
+                print(f"{CYAN}╚══════════════════════════════════════════════════════════════════╝{RESET}")
+                native = NativeAssessor(self.target)
+                self.native_scan_results = native.assess()
+                ns_ports = len(self.native_scan_results.get('open_ports', []))
+                ns_vulns = len(self.native_scan_results.get('kb_matches', []))
+                print(f"{GREEN}[✓]{RESET} Native scan: {GREEN}{ns_ports}{RESET} ports | {RED}{ns_vulns}{RESET} KB vulnerability matches")
+
             # ──────────────────────────────────────────────────────
             # PHASE 2.5 (v2.0): Advanced Reconnaissance & OSINT
             # ──────────────────────────────────────────────────────
@@ -302,6 +340,34 @@ class AutoPentestX:
                 }
                 self.db.insert_vulnerability(self.scan_id, vuln_data)
             
+            # ──────────────────────────────────────────────────────
+            # PHASE 4.5 (v3.0): Threat Intelligence Enrichment
+            # ──────────────────────────────────────────────────────
+            if self.threat_intel:
+                print(f"\n{CYAN}╔══════════════════════════════════════════════════════════════════╗{RESET}")
+                print(f"{CYAN}║{RESET} {BOLD}{YELLOW}[PHASE 4.5]{RESET} {GREEN}▶{RESET} Threat Intelligence (NVD/KEV/EPSS/ATT&CK)... {CYAN}║{RESET}")
+                print(f"{CYAN}╚══════════════════════════════════════════════════════════════════╝{RESET}")
+                ti = ThreatIntelligence()
+                ti_lookup: dict = {}
+                # Enrich CVEs from the CVE lookup phase
+                for cve_entry in (self.cve_results or []):
+                    cve_id = cve_entry.get('cve_id', '')
+                    if cve_id and cve_id != 'Unknown':
+                        try:
+                            record = ti.enrich_cve(cve_id)
+                            ti_lookup[cve_id] = {
+                                'cvss': record.cvss_score,
+                                'epss_probability': record.epss_probability,
+                                'in_kev': record.in_kev,
+                                'exploit_available': bool(record.exploit_db_ids),
+                                'attack_techniques': record.attack_techniques,
+                            }
+                        except Exception:
+                            pass
+                self.threat_intel_results = ti_lookup
+                kev_count = sum(1 for v in ti_lookup.values() if v.get('in_kev'))
+                print(f"{GREEN}[✓]{RESET} TI enrichment: {YELLOW}{len(ti_lookup)}{RESET} CVEs | {RED}{kev_count}{RESET} in CISA KEV")
+
             # Step 5: Risk Assessment
             print(f"\n{CYAN}╔══════════════════════════════════════════════════════════════════╗{RESET}")
             print(f"{CYAN}║{RESET} {BOLD}{YELLOW}[PHASE 5]{RESET} {GREEN}▶{RESET} Computing threat matrix...                        {CYAN}║{RESET}")
@@ -424,6 +490,25 @@ class AutoPentestX:
                 self.payload_results = {}
 
             # ──────────────────────────────────────────────────────
+            # PHASE 6.4.5 (v3.0): Polymorphic Payload Engine
+            # ──────────────────────────────────────────────────────
+            if self.poly_payloads:
+                print(f"\n{CYAN}╔══════════════════════════════════════════════════════════════════╗{RESET}")
+                print(f"{CYAN}║{RESET} {BOLD}{YELLOW}[PHASE 6.4.5]{RESET} {GREEN}▶{RESET} Polymorphic Payload Engine...          {CYAN}║{RESET}")
+                print(f"{CYAN}╚══════════════════════════════════════════════════════════════════╝{RESET}")
+                os.makedirs('payloads/poly', exist_ok=True)
+                poly = PolymorphicEngine()
+                self.poly_results = poly.run_full_generation(
+                    lhost=self.lhost, lport=self.lport,
+                    shellcode=b'\x90' * 16,
+                    webshell_password=self.webshell_password or 'changeme',
+                )
+                poly_count = len(self.poly_results.get('artifacts', []))
+                print(f"{GREEN}[✓]{RESET} Polymorphic engine: {YELLOW}{poly_count}{RESET} unique artifacts generated")
+            else:
+                self.poly_results = {}
+
+            # ──────────────────────────────────────────────────────
             # PHASE 6.5 (v2.0): Post-Exploitation Framework
             # ──────────────────────────────────────────────────────
             if not self.skip_post:
@@ -446,6 +531,22 @@ class AutoPentestX:
                 self.post_exploit_results = {}
 
             # ──────────────────────────────────────────────────────
+            # PHASE 6.55 (v3.0): EDR Fingerprinting
+            # ──────────────────────────────────────────────────────
+            if self.edr_fp:
+                print(f"\n{CYAN}╔══════════════════════════════════════════════════════════════════╗{RESET}")
+                print(f"{CYAN}║{RESET} {BOLD}{YELLOW}[PHASE 6.55]{RESET} {GREEN}▶{RESET} EDR/AV Fingerprinting...               {CYAN}║{RESET}")
+                print(f"{CYAN}╚══════════════════════════════════════════════════════════════════╝{RESET}")
+                edr_fp = EDRFingerprinter()
+                self.edr_fp_results = edr_fp.fingerprint()
+                edr_fp.print_report(self.edr_fp_results)
+                detected_count = len(self.edr_fp_results.detected)
+                plan = self.edr_fp_results.evasion_plan
+                print(f"{GREEN}[✓]{RESET} EDR detected: {RED}{detected_count}{RESET} product(s) | "
+                      f"Strategy: bypass={YELLOW}{plan['bypass']}{RESET} "
+                      f"gate={YELLOW}{plan['syscall_gate']}{RESET}")
+
+            # ──────────────────────────────────────────────────────
             # PHASE 6.6 (v2.0): Evasion Engine
             # ──────────────────────────────────────────────────────
             if not self.skip_evasion:
@@ -461,6 +562,31 @@ class AutoPentestX:
             else:
                 print(f"\n{YELLOW}[PHASE 6.6]{RESET} Evasion Engine... {YELLOW}[SKIPPED BY OPERATOR]{RESET}")
                 self.evasion_results = {}
+
+            # ──────────────────────────────────────────────────────
+            # PHASE 6.8 (v3.0): Heuristic / Bayesian Fusion Engine
+            # ──────────────────────────────────────────────────────
+            print(f"\n{CYAN}╔══════════════════════════════════════════════════════════════════╗{RESET}")
+            print(f"{CYAN}║{RESET} {BOLD}{YELLOW}[PHASE 6.8]{RESET} {GREEN}▶{RESET} Heuristic Fusion Engine...                 {CYAN}║{RESET}")
+            print(f"{CYAN}╚══════════════════════════════════════════════════════════════════╝{RESET}")
+            raw_findings: list = []
+            # Collect web attack findings
+            for key, items in (self.web_attack_results or {}).items():
+                if isinstance(items, list):
+                    for item in items:
+                        if isinstance(item, dict):
+                            item.setdefault('vuln_type', key)
+                            raw_findings.append(item)
+            # Collect vuln scanner findings
+            for v in (self.vuln_results or {}).get('vulnerabilities', []):
+                if isinstance(v, dict):
+                    raw_findings.append(v)
+            heuristic = HeuristicEngine()
+            self.heuristic_results = heuristic.analyze(raw_findings, self.threat_intel_results)
+            heuristic.print_summary(self.heuristic_results)
+            confirmed = sum(1 for r in self.heuristic_results if r.grade == 'CONFIRMED')
+            probable  = sum(1 for r in self.heuristic_results if r.grade == 'PROBABLE')
+            print(f"{GREEN}[✓]{RESET} Heuristic analysis: {RED}{confirmed}{RESET} CONFIRMED | {YELLOW}{probable}{RESET} PROBABLE")
 
             # Step 7: Generate PDF Report
             print(f"\n{CYAN}╔══════════════════════════════════════════════════════════════════╗{RESET}")
@@ -683,12 +809,66 @@ WARNING: FOR AUTHORIZED PENETRATION TESTING AND EDUCATIONAL PURPOSES ONLY.
                         action='store_true',
                         help='Skip evasion/obfuscation engine')
 
+    # v3.0 — enterprise
+    parser.add_argument('--native-scan',
+                        action='store_true',
+                        help='Run native no-root port/banner scanner (no nmap required)')
+    parser.add_argument('--threat-intel',
+                        action='store_true',
+                        help='Enrich CVEs with NVD, CISA KEV, EPSS and MITRE ATT&CK data')
+    parser.add_argument('--poly-payloads',
+                        action='store_true',
+                        help='Generate polymorphic payloads (unique per run, AV-resistant)')
+    parser.add_argument('--webshell-password',
+                        default=None,
+                        help='Password for generated web shells (default: random)')
+    parser.add_argument('--edr-fp',
+                        action='store_true',
+                        help='Fingerprint running EDR/AV products and select adaptive evasion')
+    # C2 server mode (standalone — not part of scan flow)
+    parser.add_argument('--c2',
+                        action='store_true',
+                        help='Start C2 server + operator CLI (scan flags ignored in this mode)')
+    parser.add_argument('--c2-port',
+                        type=int, default=8443,
+                        help='C2 HTTPS listener port (default: 8443)')
+    parser.add_argument('--c2-psk',
+                        default=None,
+                        help='C2 pre-shared key (auto-generated if omitted)')
+    parser.add_argument('--c2-cert',
+                        default=None,
+                        help='TLS certificate for C2 (auto-generated if omitted)')
+    parser.add_argument('--c2-key',
+                        default=None,
+                        help='TLS private key for C2 (auto-generated if omitted)')
+    parser.add_argument('--gen-implant',
+                        metavar='CALLBACK_URL',
+                        help='Generate Python implant for given C2 URL and exit')
+
     parser.add_argument('--version',
                         action='version',
-                        version='AutoPentestX v2.0 [DARKSEID]')
+                        version='AutoPentestX v3.0 [DARKSEID]')
     
     args = parser.parse_args()
-    
+
+    # ── C2 server / implant generator mode (no scan) ──────────────────
+    if args.gen_implant:
+        from modules.c2_server import generate_implant
+        psk = args.c2_psk or __import__('secrets').token_urlsafe(24)
+        code = generate_implant(args.gen_implant, psk, '-')
+        print(code)
+        sys.exit(0)
+
+    if args.c2:
+        from modules.c2_server import C2Server, OperatorCLI
+        srv = C2Server(host='0.0.0.0', port=args.c2_port, psk=args.c2_psk,
+                       cert=args.c2_cert, key=args.c2_key)
+        srv.start()
+        cli = OperatorCLI(srv)
+        cli.run()
+        srv.stop()
+        sys.exit(0)
+
     # Confirmation prompt
     RED = '\033[91m'
     YELLOW = '\033[93m'
@@ -740,6 +920,12 @@ WARNING: FOR AUTHORIZED PENETRATION TESTING AND EDUCATIONAL PURPOSES ONLY.
         skip_payload=args.skip_payload,
         skip_post=args.skip_post,
         skip_evasion=args.skip_evasion,
+        # v3.0
+        native_scan=args.native_scan,
+        threat_intel=args.threat_intel,
+        poly_payloads=args.poly_payloads,
+        edr_fp=args.edr_fp,
+        webshell_password=args.webshell_password,
     )
     
     success = autopentestx.run_full_assessment()
