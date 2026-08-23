@@ -1,0 +1,65 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  AutoPentestX — Docker Compose
+#
+#  Services:
+#    c2        – C2 HTTPS listener on port 8443
+#    dashboard – Web dashboard on port 5000
+#
+#  Usage:
+#    docker compose build
+#    docker compose up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── C2 server ───────────────────────────────────────────────────────────────
+  c2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: autopentestx:latest
+    container_name: autopentestx-c2
+    restart: unless-stopped
+    command: >
+      python modules/c2_server.py
+        --host 0.0.0.0
+        --port 8443
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./database:/app/database
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import ssl, urllib.request; ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=0; urllib.request.urlopen('https://localhost:8443/', context=ctx, timeout=3)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── Dashboard ────────────────────────────────────────────────────────────────
+  dashboard:
+    image: autopentestx:latest
+    container_name: autopentestx-dashboard
+    restart: unless-stopped
+    command: python dashboard/app.py
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./database:/app/database
+    environment:
+      - PYTHONUNBUFFERED=1
+      - C2_URL=https://c2:8443
+    depends_on:
+      - c2
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:5000/', timeout=3)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
